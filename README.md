@@ -137,4 +137,4 @@ For more information, please refer to:
 ## Acknowledgement
 This pipeline for video/image data processing pipeline in MindSpore is 
 based on the work [here](https://github.com/hpcaitech/Open-Sora/blob/main/docs/data_processing.md) by HPC-AI OpenSora. We thank them for their generous
-support to the open source community.
+support to the open-source community.
