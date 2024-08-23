@@ -40,23 +40,27 @@ Please first download the models and put them in the designated
 directories for scoring and captioning. More details can be 
 found in the **Further Reading** section below.
 
+### 0. Set up
 ```bash
-# setup
 ROOT_VIDEO="/path/to/video/folder"
 ROOT_CLIPS="/path/to/video/clips/folder"
 ROOT_META="/path/to/meta/folder"
 export PYTHONPATH=$(pwd)
 # run the command below to set up deduplication if needed
 python pipeline/datasets/imagededup/setup.py build_ext --inplace
+```
 
-# 1. Convert dataset to CSV
+### 1. Convert dataset to CSV
+```bash
 # 1.1 Create a meta file from a video folder. This should output ${ROOT_META}/meta.csv
 python -m pipeline.datasets.convert video ${ROOT_VIDEO} --output ${ROOT_META}/meta.csv
 
 # 1.2 Get video information and remove broken videos. This should output ${ROOT_META}/meta_info_fmin1.csv
 python -m pipeline.datasets.datautil ${ROOT_META}/meta.csv --info --fmin 1
+```
 
-# 2. Split videos to clips
+### 2. Split video to clips
+```bash
 # 2.1 Detect scenes. This should output ${ROOT_META}/meta_info_fmin1_timestamp.csv
 python -m pipeline.splitting.scene_detect ${ROOT_META}/meta_info_fmin1.csv
 
@@ -68,11 +72,16 @@ python -m pipeline.datasets.convert video ${ROOT_CLIPS} --output ${ROOT_META}/me
 
 # 2.4 Get clips information and remove broken ones. This should output ${ROOT_META}/meta_clips_info_fmin1.csv
 python -m pipeline.datasets.datautil ${ROOT_META}/meta_clips.csv --info --fmin 1
+```
 
+### 3. Deduplication 
+```bash
 # 3. Deduplication. This should output ${ROOT_META}/meta_clips_info_fmin1_dedup.csv
 python -m pipeline.datasets.deduplication ${ROOT_META}/meta_clips_info_fmin1.csv
+```
 
-# 4. Scoring and Filtering
+### 4. Scoring and filtering
+```bash
 # 4.1.1 Calculate matching scores with an option. This should output ${ROOT_META}/meta_clips_info_fmin1_dedup_{args.option}.csv
 python -m pipeline.scoring.matching.inference ${ROOT_META}/meta_clips_info_fmin1_dedup.csv --option animal --use_cpu # cpu
 # modify worker_num and local_worker_num based on your resource, same below
@@ -92,8 +101,10 @@ msrun --worker_num=2 --local_worker_num=2 --join=True \
 
 # 4.2.2 Filter by aesthetic scores. This should output ${ROOT_META}/meta_clips_info_fmin1_dedup_{args.option}_matchmin20_aesmin4.5.csv
 python -m pipeline.datasets.datautil ${ROOT_META}/meta_clips_info_fmin1_dedup_animal_matchmin20.0_aes.csv --aesmin 4.5
+```
 
-# 5. Captioning and calculating matching scores
+### 5. Captioning and calculating matching scores
+```bash
 # 5.1 Generate PLLaVA caption. This should output ${ROOT_META}/meta_clips_info_fmin1_dedup_{args.option}_matchmin20_aesmin4.5_caption.csv
 msrun --worker_num=2 --local_worker_num=2 --join=True \
  --log_dir=msrun_log pipeline/captioning/caption_pllava.py \
@@ -137,4 +148,4 @@ For more information, please refer to:
 ## Acknowledgement
 This pipeline for video/image data processing pipeline in MindSpore is 
 based on the work [here](https://github.com/hpcaitech/Open-Sora/blob/main/docs/data_processing.md) by HPC-AI OpenSora. We thank them for their generous
-support to the open-source community.
+support to the open source community.
