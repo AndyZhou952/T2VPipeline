@@ -17,7 +17,7 @@ aesthetic scoring, OCR (Optical Character Recognition) for text
 detection, and optical flow scoring to assess motion. 
 Only videos that meet satisfactory evaluation criteria advance 
 to the captioning step. 
-**(Remark: OCR and optical flow scoring will be supported in this 
+**(Remark: OCR and optical flow scoring will be supported in future 
 release)**
 
 After captioning, a matching score is calculated to assess the 
