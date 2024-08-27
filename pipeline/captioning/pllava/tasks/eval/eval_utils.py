@@ -25,7 +25,6 @@ from pipeline.captioning.pllava.utils.easydict import EasyDict
 IMAGE_TOKEN = "<image>"
 
 
-
 class SeparatorStyle(Enum):
     """Different separator style."""
     SINGLE = auto()
@@ -462,6 +461,33 @@ class ChatPllava:
             # " " should be added in the start and end
             msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
             return images_group, msg
+        else:
+            return images_group
+
+    def load_video(self, video_path, num_frames, return_msg=False, resolution=336):
+        transforms = torchvision.transforms.Resize(size=resolution)
+        # vr = VideoReader(video_path, ctx=cpu(0), num_threads=1)
+        vframes, aframes, info = read_video_av(
+            video_path,
+            pts_unit="sec",
+            output_format="THWC"
+        )
+        print(vframes.shape)
+        total_num_frames = len(vframes)
+        # print("Video path: ", video_path)
+        # print("Total number of frames: ", total_num_frames)
+        frame_indices = self.get_index(total_num_frames, num_frames)
+        images_group = list()
+        for frame_index in frame_indices:
+            img = Image.fromarray(vframes[frame_index].numpy())
+            images_group.append(transforms(img))
+        if return_msg:
+            # fps = float(vframes.get_avg_fps())
+            # sec = ", ".join([str(round(f / fps, 1)) for f in frame_indices])
+            # # " " should be added in the start and end
+            # msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
+            # return images_group, msg
+            exit('return_msg not implemented yet')
         else:
             return images_group
 

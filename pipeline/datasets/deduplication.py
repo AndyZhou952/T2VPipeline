@@ -21,7 +21,8 @@ class VideoTextDataset:
             images = [pil_loader(path)]
         else:
             num_frames = sample["num_frames"] if "num_frames" in sample else None
-            images = extract_frames(path, points=[0.5], backend="opencv", num_frames=num_frames)
+            # extract the first frame of every video
+            images = extract_frames(path, frame_inds=[0], backend="av", num_frames=num_frames)
             images = [np.array(img) for img in images]
 
         return path, images[0]  # Return the first (and the only) image
@@ -35,7 +36,7 @@ def parse_args():
     parser.add_argument("--skip_if_existing", action="store_true")
     parser.add_argument("--hash", type=str, default='phash',
                         help="Hash algorithm to use, choose from 'phash', 'ahash', 'dhash', or 'whash'")
-    parser.add_argument("--threshold", type=int, default=10,
+    parser.add_argument("--threshold", type=int, default=15,
                 help='Max distance threshold for detecting duplication after encoding and hashing, between 1 to 64')
     args = parser.parse_args()
     return args

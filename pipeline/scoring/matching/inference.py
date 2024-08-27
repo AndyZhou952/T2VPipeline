@@ -41,7 +41,7 @@ class VideoTextDataset:
             images = [pil_loader(path)]
         else:
             num_frames = sample["num_frames"] if "num_frames" in sample else None
-            images = extract_frames(path, points=self.points, backend="opencv", num_frames=num_frames)
+            images = extract_frames(path, points=self.points, backend="av", num_frames=num_frames)
 
         # transform & stack
         images = [self.transform(img) for img in images]
@@ -59,8 +59,8 @@ def parse_args():
     parser.add_argument("meta_path", type=str, help="Path to the input CSV file")
 
     parser.add_argument("--use_cpu", action="store_true", help="Whether to use CPU")
-    parser.add_argument("--bs", type=int, default=1024, help="Batch size")
-    parser.add_argument("--num_frames", type=int, default=3, help="Number of frames to extract")
+    parser.add_argument("--bs", type=int, default=64, help="Batch size")
+    parser.add_argument("--num_frames", type=int, default=1, help="Number of frames to extract, support 1, 2, and 3.")
     parser.add_argument("--option", type=str, default=None, help="Option filtering string")
 
     parser.add_argument("--skip_if_existing", action="store_true")
