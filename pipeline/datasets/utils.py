@@ -167,7 +167,6 @@ def read_video_av(
 
     Returns:
         vframes (Tensor[T, H, W, C] or Tensor[T, C, H, W]): the `T` video frames.
-        aframes (Tensor[K, L]): the audio frames, where `K` is the number of channels and `L` is the number of points.
         info (Dict): Metadata for the video.
     """
     # format
@@ -217,9 +216,7 @@ def read_video_av(
     if output_format == "TCHW":
         video_frames = video_frames.transpose(0, 3, 1, 2)  # [T, H, W, C] to [T, C, H, W]
 
-    vframes = ms.Tensor(video_frames, dtype=ms.uint8)
-    aframes = ms.Tensor(np.empty((1, 0), dtype=np.float32))  # Empty audio frames
-    return vframes, aframes, info
+    return video_frames, info
 
 def _read_from_stream(
     video_frames,

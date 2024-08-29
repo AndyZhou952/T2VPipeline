@@ -104,6 +104,7 @@ def get_video_info(path):
 LLAVA_PREFIX = [
     "The video shows",
     "The video captures",
+    "The video showcases",
     "The video features",
     "The video depicts",
     "The video presents",
@@ -119,6 +120,8 @@ LLAVA_PREFIX = [
     "The image is ",
     "The image portrays",
     "In the image,",
+    "in the image",
+    "the image captures",
 ]
 
 

@@ -21,6 +21,7 @@ from decord import VideoReader, cpu # This is Terrible, if you have this line of
 from mindnlp.transformers import StoppingCriteria, StoppingCriteriaList
 
 from pipeline.captioning.pllava.utils.easydict import EasyDict
+from pipeline.datasets.utils import read_video_av
 
 IMAGE_TOKEN = "<image>"
 
@@ -413,7 +414,7 @@ class ChatPllava:
         output_token = self.model.generate(**inputs, media_type='video',
                                         do_sample=self.do_sample,max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
                                         top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
-                                        ) # dont need to long for the choice.
+                                        ) # don't need to long for the choice.
         output_text = self.processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
         if self.print_res:
@@ -437,93 +438,57 @@ class ChatPllava:
         ])
         return offsets
 
-    def load_video(self, video_path, num_segments=8, return_msg=False):
-        vr = VideoReader(video_path, ctx=cpu(0))
-        num_frames = len(vr)
-        frame_indices = self.get_index(num_frames, num_segments)
-        
-        duration = len(vr) // vr.get_avg_fps()
-        index = np.linspace(0, len(vr)-1, num=int(duration))
-        buffer = vr.get_batch(index).asnumpy()
-        # transform
-        
-        images_group = list()
-        for frame in buffer:
-            img = Image.fromarray(frame)
-            images_group.append(img)
-        images_group = list()
-        for frame_index in frame_indices:
-            img = Image.fromarray(vr[frame_index].asnumpy())
-            images_group.append(img)
-        if return_msg:
-            fps = float(vr.get_avg_fps())
-            sec = ", ".join([str(round(f / fps, 1)) for f in frame_indices])
-            # " " should be added in the start and end
-            msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
-            return images_group, msg
-        else:
-            return images_group
+    # def load_video(self, video_path, num_segments=8, return_msg=False):
+    #     vr = VideoReader(video_path, ctx=cpu(0))
+    #     num_frames = len(vr)
+    #     frame_indices = self.get_index(num_frames, num_segments)
+    #
+    #     duration = len(vr) // vr.get_avg_fps()
+    #     index = np.linspace(0, len(vr)-1, num=int(duration))
+    #     buffer = vr.get_batch(index).asnumpy()
+    #     # transform
+    #
+    #     images_group = list()
+    #     for frame in buffer:
+    #         img = Image.fromarray(frame)
+    #         images_group.append(img)
+    #     images_group = list()
+    #     for frame_index in frame_indices:
+    #         img = Image.fromarray(vr[frame_index].asnumpy())
+    #         images_group.append(img)
+    #     if return_msg:
+    #         fps = float(vr.get_avg_fps())
+    #         sec = ", ".join([str(round(f / fps, 1)) for f in frame_indices])
+    #         # " " should be added in the start and end
+    #         msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
+    #         return images_group, msg
+    #     else:
+    #         return images_group
 
-    def load_video(self, video_path, num_frames, return_msg=False, resolution=336):
-        transforms = torchvision.transforms.Resize(size=resolution)
-        # vr = VideoReader(video_path, ctx=cpu(0), num_threads=1)
-        vframes, aframes, info = read_video_av(
+    def load_video(self, video_path, num_segments):
+        vframes, info = read_video_av(
             video_path,
             pts_unit="sec",
             output_format="THWC"
         )
-        print(vframes.shape)
         total_num_frames = len(vframes)
-        # print("Video path: ", video_path)
-        # print("Total number of frames: ", total_num_frames)
-        frame_indices = self.get_index(total_num_frames, num_frames)
+        frame_indices = self.get_index(total_num_frames, num_segments)
         images_group = list()
         for frame_index in frame_indices:
-            img = Image.fromarray(vframes[frame_index].numpy())
-            images_group.append(transforms(img))
-        if return_msg:
-            # fps = float(vframes.get_avg_fps())
-            # sec = ", ".join([str(round(f / fps, 1)) for f in frame_indices])
-            # # " " should be added in the start and end
-            # msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
-            # return images_group, msg
-            exit('return_msg not implemented yet')
-        else:
-            return images_group
+            images_group.append(vframes[frame_index])
+        images_group = ms.Tensor(images_group, dtype=ms.uint8)
+        return images_group
 
     def upload_video(self, image, conv: Conversation, img_list: list[list], num_segments=None):
         num_segments = self.model.config.num_frames if num_segments is None else num_segments 
         if isinstance(image, str):  # is an image path
-            vid, msg = self.load_video(image, num_segments=num_segments, return_msg=True)
+            vid = self.load_video(image, num_segments=num_segments)
         else:
             raise NotImplementedError
-        print("Input video shape:", len(vid), *vid[0].size)
         img_list.append(vid)
         conv.user_query("", is_mm=True)
         msg = "Received."
         # self.conv.append_message(self.conv.roles[1], msg)
-        return msg, img_list, conv
-
-    def upload_img(self, image, conv, img_list):
-        img = image
-        transform = transforms.Compose(
-            [
-                vision.Resize((224, 224), interpolation=vision.Inter.BICUBIC),
-                vision.ToTensor(),
-                vision.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711)),
-            ]
-        )
-
-        img = ms.Tensor(transform(img)).unsqueeze(0).unsqueeze(0)
-
-        image_emb, _ = self.model.encode_img(img, "Observe the image and answer the question.")
-        img_list.append(image_emb)
-
-        conv.messages.append([
-            conv.roles[0],
-            f"<Image><ImageHere></Image>\n"
-        ])
-        msg = "Received."
         return msg, img_list, conv
 
 class StoppingCriteriaSub(StoppingCriteria):
