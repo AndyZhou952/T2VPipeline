@@ -41,10 +41,11 @@ class VideoTextDataset:
             images = [pil_loader(path)]
         else:
             num_frames = sample["num_frames"] if "num_frames" in sample else None
-            images = extract_frames(path, points=self.points, backend="av", num_frames=num_frames)
+            images = extract_frames(path, points=self.points, backend="opencv", num_frames=num_frames)
 
         # transform & stack
-        images = [self.transform(img) for img in images]
+        if self.transform is not None:
+            images = [self.transform(img) for img in images]
         images = np.stack([img.asnumpy() for img in images])
 
          # read from csv directly if exists, else return None

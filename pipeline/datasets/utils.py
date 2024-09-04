@@ -150,7 +150,7 @@ def read_video_av(
     filename: str,
     start_pts: Union[float, Fraction] = 0,
     end_pts: Optional[Union[float, Fraction]] = None,
-    pts_unit: str = "pts",
+    pts_unit: str = "sec",
     output_format: str = "THWC",
 ) -> Tuple[ms.Tensor, ms.Tensor, Dict[str, Any]]:
     """

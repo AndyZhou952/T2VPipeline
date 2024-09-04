@@ -22,7 +22,7 @@ class VideoTextDataset:
         else:
             num_frames = sample["num_frames"] if "num_frames" in sample else None
             # extract the first frame of every video
-            images = extract_frames(path, frame_inds=[0], backend="av", num_frames=num_frames)
+            images = extract_frames(path, frame_inds=[0], backend="opencv", num_frames=num_frames)
             images = [np.array(img) for img in images]
 
         return path, images[0]  # Return the first (and the only) image

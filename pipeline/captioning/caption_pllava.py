@@ -153,6 +153,7 @@ def main():
     model.set_train(False)
     for batch in tqdm(iterator):
         video_paths = batch['video_path']
+        print(video_paths)
         indices = batch['index']
 
         for video_path, idx in zip(video_paths, indices):
