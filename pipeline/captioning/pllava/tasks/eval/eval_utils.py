@@ -438,46 +438,32 @@ class ChatPllava:
         ])
         return offsets
 
-    # def load_video(self, video_path, num_segments=8, return_msg=False):
-    #     vr = VideoReader(video_path, ctx=cpu(0))
-    #     num_frames = len(vr)
-    #     frame_indices = self.get_index(num_frames, num_segments)
-    #
-    #     duration = len(vr) // vr.get_avg_fps()
-    #     index = np.linspace(0, len(vr)-1, num=int(duration))
-    #     buffer = vr.get_batch(index).asnumpy()
-    #     # transform
-    #
-    #     images_group = list()
-    #     for frame in buffer:
-    #         img = Image.fromarray(frame)
-    #         images_group.append(img)
-    #     images_group = list()
-    #     for frame_index in frame_indices:
-    #         img = Image.fromarray(vr[frame_index].asnumpy())
-    #         images_group.append(img)
-    #     if return_msg:
-    #         fps = float(vr.get_avg_fps())
-    #         sec = ", ".join([str(round(f / fps, 1)) for f in frame_indices])
-    #         # " " should be added in the start and end
-    #         msg = f"The video contains {len(frame_indices)} frames sampled at {sec} seconds."
-    #         return images_group, msg
-    #     else:
-    #         return images_group
-
     def load_video(self, video_path, num_segments):
-        vframes, info = read_video_av(
-            video_path,
-            pts_unit="sec",
-            output_format="THWC"
-        )
-        total_num_frames = len(vframes)
-        frame_indices = self.get_index(total_num_frames, num_segments)
-        images_group = list()
-        for frame_index in frame_indices:
-            images_group.append(vframes[frame_index])
-        images_group = ms.Tensor(images_group, dtype=ms.uint8)
-        return images_group
+        try:
+            vframes, info = read_video_av(
+                video_path,
+                pts_unit="sec",
+                output_format="THWC"
+            )
+            total_num_frames = len(vframes)
+
+            if total_num_frames == 0:
+                raise ValueError("No frames found in the video.")
+
+            frame_indices = self.get_index(total_num_frames, num_segments)
+            images_group = list()
+            for frame_index in frame_indices:
+                images_group.append(vframes[frame_index])
+            images_group = ms.Tensor(images_group, dtype=ms.uint8)
+
+            return images_group
+
+        except (IndexError, ValueError) as e:
+            # TODO: temporary fix to skip videos, may need to fix the logic later
+            # skip this video if error occurs
+            print(f"Error processing video at {video_path}: {e}")
+            return None
+
 
     def upload_video(self, image, conv: Conversation, img_list: list[list], num_segments=None):
         num_segments = self.model.config.num_frames if num_segments is None else num_segments 
@@ -485,11 +471,14 @@ class ChatPllava:
             vid = self.load_video(image, num_segments=num_segments)
         else:
             raise NotImplementedError
-        img_list.append(vid)
-        conv.user_query("", is_mm=True)
-        msg = "Received."
-        # self.conv.append_message(self.conv.roles[1], msg)
-        return msg, img_list, conv
+        if vid is not None:
+            img_list.append(vid)
+            conv.user_query("", is_mm=True)
+            msg = "Received."
+            # self.conv.append_message(self.conv.roles[1], msg)
+            return msg, img_list, conv
+        else:
+            return None, None, None # error handling
 
 class StoppingCriteriaSub(StoppingCriteria):
     def __init__(self, stops=[]):

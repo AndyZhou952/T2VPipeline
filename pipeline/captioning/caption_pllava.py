@@ -160,6 +160,8 @@ def main():
             chat_state = INIT_CONVERSATION.copy()
             img_list = []
             llm_message, img_list, chat_state = chat.upload_video(video_path, chat_state, img_list)
+            if img_list is None: # skip if error occurs when handling a video, in which case the caption for this video would be empty
+                continue
             out_tokens = get_response(chat, chat_state, img_list, args.question,
                                       args.num_beams, args.temperature, args.max_new_tokens)
             out_tokens = ops.squeeze(ms.Tensor(out_tokens, dtype=ms.int64), axis = 0)
@@ -202,6 +204,7 @@ def main():
             ending = chat_state.sep if isinstance(chat_state.sep, str) else chat_state.sep[1]
             decoded_texts[i] = decoded_texts[i].removesuffix(ending).strip()
             chat_state.messages[-1][1] = decoded_texts[i]
+
         # save to csv
         meta_local.loc[indices_list, 'text'] = decoded_texts
         meta_local.to_csv(out_path, index=False)
