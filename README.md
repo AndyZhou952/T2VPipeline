@@ -1,6 +1,8 @@
 # Data Processing
 >Automatic T2V HQ Data Curation Pipeline v1.0.
 
+ ![pipeline](/assets/data_pipeline_baseline.png)
+
 ## Overview
 This pipeline is designed to train AI models for video generation 
 based on text inputs based on MindSpore.
@@ -17,7 +19,7 @@ aesthetic scoring, OCR (Optical Character Recognition) for text
 detection, and optical flow scoring to assess motion. 
 Only videos that meet satisfactory evaluation criteria advance 
 to the captioning step. 
-**(Remark: OCR and optical flow scoring will be supported in future 
+**(Remark: optical flow scoring will be supported in future 
 release)**
 
 After captioning, a matching score is calculated to assess the 
@@ -139,13 +141,12 @@ For more information, please refer to:
 ## TODOs:
 - [x] Feature: support PLLaVA captioning
 - [ ] Feature: support ShareGPT4V captioning
-- [ ] Feature: support optical flow/OCR filtering
-- [ ] Precision check: matching/aesthetic (CLIP+MLP)
+- [x] Feature: support OCR filtering
+- [ ] Feature: support optical flow filtering
 - [ ] Enhancement: support unsupervised concept balancing
 - [ ] Enhancement: support Panda-70M cutting and stitching
-- [ ] Enhancement: option filtering based on multiple strings
 
 ## Acknowledgement
 This pipeline for video/image data processing pipeline in MindSpore is 
-based on the work [here](https://github.com/hpcaitech/Open-Sora/blob/main/docs/data_processing.md) by HPC-AI OpenSora. We thank them for their generous
+based on the [work](https://github.com/hpcaitech/Open-Sora/blob/main/docs/data_processing.md) by HPC-AI OpenSora. We thank them for their generous
 support to the open source community.

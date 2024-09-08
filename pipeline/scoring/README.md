@@ -3,6 +3,7 @@
 - [Scoring and Filtering](#scoring-and-filtering)
   - [Aesthetic Score](#aesthetic-score)
   - [Matching Score](#matching-score)
+  - [OCR](#OCR)
   - [Filtering](#filtering)
 
 ## Aesthetic Score
@@ -82,6 +83,32 @@ Modify `worker_num` and `local_worker_num` based on your resource.
 
 This should output `/path/to/meta_match.csv` with column `match`. Higher matching scores indicate better image-text/video-text alignment.
 
+## OCR
+OCR (Optical Character Recognition) is used to detect and recognize 
+text in images and video frames. We use the MindOCR package for 
+this task, which supports a variety of state-of-the-art OCR 
+algorithms. MindOCR supports both detection and recognition of text 
+in natural scenes. By default, we use DB++ for detection and
+CRNN for recognition. You can check the [MindOCR](https://github.com/mindspore-lab/mindocr/tree/main/tools/infer/text) 
+page for the full list.
+
+Run the following command for inference. **Make sure** the meta file has the column `path` (path to the sample).
+
+Currently, we only support captioning on Ascend on a single chip.
+Data parallelism may be supported in future release. 
+
+```bash
+export PYTHONPATH=$(pwd)
+msrun --worker_num=1 --local_worker_num=1 --join=True \
+ --log_dir=msrun_log pipeline/scoring/ocr/inference.py \
+ /path/to/meta.csv 
+```
+
+You can find the results in the `ocr` column of the csv file. It 
+will be stored in the following format:
+```angular2html
+[{"transcription": "canada", "points": [[430, 148], [540, 148], [540, 171], [430, 171]]}, ...]
+```
 
 ## Filtering
 Once scores are obtained, it is simple to filter samples based on these scores. Here is an example to remove
