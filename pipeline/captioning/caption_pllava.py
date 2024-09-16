@@ -160,7 +160,11 @@ def main():
             chat_state = INIT_CONVERSATION.copy()
             img_list = []
             llm_message, img_list, chat_state = chat.upload_video(video_path, chat_state, img_list)
-            if img_list is None: # skip if error occurs when handling a video, in which case the caption for this video would be empty
+            if img_list is None:
+                # skip if error occurs when handling a video, in which case the caption for this video would be empty
+                indices_list.append(idx) # these three lines fix AllGather issue - consistent Tensor length
+                token_length_list.append(0)  # Indicate no tokens generated
+                token_list.append(pad_tensor(ms.Tensor([0], dtype=ms.int64), args.pad_length))
                 continue
             out_tokens = get_response(chat, chat_state, img_list, args.question,
                                       args.num_beams, args.temperature, args.max_new_tokens)
@@ -186,14 +190,26 @@ def main():
         separated_tokens = []
         for length in token_length_list:
             end_idx = start_idx + length
-            separated_tokens.append(token_list[start_idx:end_idx])
+            # skip erroneous video - marked by length = 0
+            if length == 0:
+                # process here append something
+                separated_tokens.append(None)
+            else:
+                separated_tokens.append(token_list[start_idx:end_idx])
             start_idx += args.pad_length
         # get text
-        decoded_texts = [
-            chat.processor.batch_decode(ops.unsqueeze(output_token, dim=0),
-                                        skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-            for output_token in separated_tokens
-        ]
+        decoded_texts = []
+        for idx, output_token in enumerate(separated_tokens):
+            if output_token is None:
+                # assign a default caption for placeholders
+                decoded_texts.append(" ")
+            else:
+                decoded_text = chat.processor.batch_decode(
+                    ops.unsqueeze(output_token, dim=0),
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=False
+                )[0]
+                decoded_texts.append(decoded_text)
         # clean up
         for i in range(len(decoded_texts)):
             if chat_state.roles[-1] == "<|im_start|>assistant\n":
