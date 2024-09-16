@@ -9,7 +9,20 @@
     - [Documentation](#documentation)
   - [Analyze datasets](#analyze-datasets)
 
-After having the raw dataset ready in a folder, you can use the following commands to manage the dataset.
+You can use the following commands to manage the dataset.
+
+## Dataset to CSV
+
+As a starting point, `convert.py` is used to convert 
+the dataset (i.e., videos or images in a folder) to a CSV file. You can use the following 
+commands to convert the dataset to a CSV file:
+
+```bash
+# general video folder
+python -m pipeline.datasets.convert video VIDEO_FOLDER --output video.csv
+# general image folder
+python -m pipeline.datasets.convert image IMAGE_FOLDER --output image.csv
+```
 
 ## Dataset Format
 
@@ -37,34 +50,14 @@ path, text, num_frames, width, height, aspect_ratio
 /absolute/path/to/video2.mp4, caption, 20, 256, 256, 1
 ```
 
-We use pandas to manage the `.csv` or `.parquet` files. The following code is for reading and writing files:
-
-```python
-df = pd.read_csv(input_path)
-df = df.to_csv(output_path, index=False)
-# or use parquet, which is smaller
-df = pd.read_parquet(input_path)
-df = df.to_parquet(output_path, index=False)
-```
-
-## Dataset to CSV
-
-As a start point, `convert.py` is used to convert the dataset to a CSV file. You can use the following commands to convert the dataset to a CSV file:
-
-```bash
-# general video folder
-python -m pipeline.datasets.convert video VIDEO_FOLDER --output video.csv
-# general image folder
-python -m pipeline.datasets.convert image IMAGE_FOLDER --output image.csv
-```
-
 ## Manage datasets
 
-Use `datautil` to manage the dataset.
+We use `datautil.py` to manage the dataset.
 
 ### Basic Usage
 
-You can use the following commands to process the `csv` or `parquet` files. The output file will be saved in the same directory as the input, with different suffixes indicating the processed method.
+You can use the following commands to process the `.csv` 
+or `.parquet` files. The output file will be saved in the same directory as the input, with different suffixes indicating the processed method.
 
 ```bash
 # datautil takes multiple CSV files as input and merge them into one CSV file
@@ -92,8 +85,8 @@ python -m pipeline.datasets.datautil DATA.csv --video-info --remove-empty-captio
 
 ### Score filtering
 
-To examine and filter the quality of the dataset by 
-aesthetic score and clip score, 
+To examine and filter the dataset by 
+aesthetic score or CLIP matching score, 
 you can use the following commands:
 
 ```bash
@@ -156,7 +149,8 @@ You can also use `python -m pipeline.datasets.datautil --help` to see usage.
 
 ## Analyze datasets
 
-You can easily get basic information about a `.csv` dataset by using the following commands:
+You can get the basic information about a `.csv` 
+dataset by using the following commands:
 
 ```bash
 # examine the first 10 rows of the CSV file
@@ -165,7 +159,9 @@ head -n 10 DATA1.csv
 wc -l DATA1.csv
 ```
 
-For the dataset provided in a `.csv` or `.parquet` file, you can easily analyze the dataset using the following commands. Plots will be automatically saved.
+For the dataset provided in a `.csv` or `.parquet` 
+file, you can analyze the dataset using the following 
+commands. Plots will be saved automatically.
 
 ```bash
 pyhton -m pipeline.datasets.analyze DATA_info.csv
