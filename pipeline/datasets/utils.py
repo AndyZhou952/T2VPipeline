@@ -2,7 +2,6 @@
 # and also https://github.com/hpcaitech/Open-Sora/blob/main/tools/datasets/utils.py
 
 import cv2
-import gc
 import re
 import mindspore as ms
 import numpy as np
@@ -51,28 +50,27 @@ def extract_frames(
 
     if backend == "av":
         import av
+        with av.open(video_path) as container:
+            if num_frames is not None:
+                total_frames = num_frames
+            else:
+                total_frames = container.streams.video[0].frames
 
-        container = av.open(video_path)
-        if num_frames is not None:
-            total_frames = num_frames
-        else:
-            total_frames = container.streams.video[0].frames
+            if points is not None:
+                frame_inds = [int(p * total_frames) for p in points]
 
-        if points is not None:
-            frame_inds = [int(p * total_frames) for p in points]
+            frames = []
+            for idx in frame_inds:
+                if idx >= total_frames:
+                    idx = total_frames - 1
+                target_timestamp = int(idx * av.time_base / container.streams.video[0].average_rate)
+                container.seek(target_timestamp)
+                frame = next(container.decode(video=0)).to_image()
+                frames.append(frame)
 
-        frames = []
-        for idx in frame_inds:
-            if idx >= total_frames:
-                idx = total_frames - 1
-            target_timestamp = int(idx * av.time_base / container.streams.video[0].average_rate)
-            container.seek(target_timestamp)
-            frame = next(container.decode(video=0)).to_image()
-            frames.append(frame)
-
-        if return_length:
-            return frames, total_frames
-        return frames
+            if return_length:
+                return frames, total_frames
+            return frames
 
     elif backend == "decord":
         import decord
@@ -97,52 +95,55 @@ def extract_frames(
 
     elif backend == "opencv":
         cap = cv2.VideoCapture(video_path)
-        if num_frames is not None:
-            total_frames = num_frames
-        else:
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        try:
+            if num_frames is not None:
+                total_frames = num_frames
+            else:
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        if points is not None:
-            frame_inds = [int(p * total_frames) for p in points]
+            if points is not None:
+                frame_inds = [int(p * total_frames) for p in points]
 
-        frames = []
-        for idx in frame_inds:
-            if idx >= total_frames:
-                idx = total_frames - 1
+            frames = []
+            for idx in frame_inds:
+                if idx >= total_frames:
+                    idx = total_frames - 1
 
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
 
-            # HACK: sometimes OpenCV fails to read frames, return a black frame instead
-            try:
-                ret, frame = cap.read()
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame = Image.fromarray(frame)
-            except Exception as e:
-                print(f"[Warning] Error reading frame {idx} from {video_path}: {e}")
-                # First, try to read the first frame
+                # HACK: sometimes OpenCV fails to read frames, return a black frame instead
                 try:
-                    print(f"[Warning] Try reading first frame.")
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ret, frame = cap.read()
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     frame = Image.fromarray(frame)
-                # If that fails, return a black frame
                 except Exception as e:
-                    print(f"[Warning] Error in reading first frame from {video_path}: {e}")
-                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    print(f"[Warning] Error reading frame {idx} from {video_path}: {e}")
+                    # First, try to read the first frame
+                    try:
+                        print(f"[Warning] Try reading first frame.")
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        ret, frame = cap.read()
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame = Image.fromarray(frame)
+                    # If that fails, return a black frame
+                    except Exception as e:
+                        print(f"[Warning] Error in reading first frame from {video_path}: {e}")
+                        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        frame = Image.new("RGB", (width, height), (0, 0, 0))
+
+                # HACK: if height or width is 0, return a black frame instead
+                if frame.height == 0 or frame.width == 0:
+                    height = width = 256
                     frame = Image.new("RGB", (width, height), (0, 0, 0))
 
-            # HACK: if height or width is 0, return a black frame instead
-            if frame.height == 0 or frame.width == 0:
-                height = width = 256
-                frame = Image.new("RGB", (width, height), (0, 0, 0))
+                frames.append(frame)
 
-            frames.append(frame)
-
-        if return_length:
-            return frames, total_frames
-        return frames
+            if return_length:
+                return frames, total_frames
+            return frames
+        finally:
+            cap.release()
     else:
         raise ValueError
 
@@ -182,36 +183,39 @@ def read_video_av(
     if end_pts < start_pts:
         raise ValueError(f"end_pts should be larger than start_pts, got start_pts={start_pts} and end_pts={end_pts}")
     # ==get video info==
-    # TODO: creating an container leads to memory leak (1G for 8 workers 1 GPU)
-    container = av.open(filename, metadata_errors="ignore")
-    video_stream = container.streams.video[0]
-    # fps
-    video_fps = video_stream.average_rate
-    info = {'video_fps': float(video_fps)} if video_fps is not None else {}
-    total_frames = video_stream.frames if video_stream.frames > 0 else MAX_NUM_FRAMES  # Fallback for total frames
+    with av.open(filename, metadata_errors="ignore") as container:
+        video_stream = container.streams.video[0]
+        video_fps = video_stream.average_rate
+        info = {'video_fps': float(video_fps)} if video_fps is not None else {}
+        # total frame calculation
+        if video_stream.frames > 0:
+            total_frames = video_stream.frames
+        else:
+            if video_stream.duration and video_stream.average_rate:
+                total_frames = int(video_stream.duration * video_stream.average_rate * video_stream.time_base)
+            else:
+                total_frames = MAX_NUM_FRAMES
 
-    video_frames = np.zeros((total_frames, video_stream.height, video_stream.width, 3), dtype=np.uint8)
-    container.close()
-    del container
-
-    # TODO:
-    # == read ==
-    try:
-        # TODO: The reading has memory leak (4G for 8 workers 1 GPU)
-        container = av.open(filename, metadata_errors="ignore")
-        assert container.streams.video is not None
-        video_frames = _read_from_stream(
-            video_frames,
-            container,
-            start_pts,
-            end_pts,
-            pts_unit,
-            container.streams.video[0],
-            {"video": 0},
-            filename=filename,
+        video_frames = np.zeros(
+            (total_frames, video_stream.height, video_stream.width, 3), dtype=np.uint8
         )
+
+    try:
+        with av.open(filename, metadata_errors="ignore") as container:
+            assert container.streams.video is not None
+            video_frames = _read_from_stream(
+                video_frames,
+                container,
+                start_pts,
+                end_pts,
+                pts_unit,
+                container.streams.video[0],
+                {"video": 0},
+                filename=filename,
+            )
     except av.AVError as e:
         print(f"[Warning] Error while reading video {filename}: {e}")
+        return None, info
 
     if output_format == "TCHW":
         video_frames = video_frames.transpose(0, 3, 1, 2)  # [T, H, W, C] to [T, C, H, W]
@@ -267,14 +271,14 @@ def _read_from_stream(
         container.seek(seek_offset, any_frame=False, backward=True, stream=stream)
     except av.AVError as e:
         print(f"[Warning] Error while seeking video {filename}: {e}")
-        return []
+        return video_frames[:0] # return empty array
 
     # == main ==
     buffer_count = 0
     frames_pts = []
     cnt = 0
     try:
-        for _idx, frame in enumerate(container.decode(**stream_name)):
+        for frame in container.decode(**stream_name):
             frames_pts.append(frame.pts)
             video_frames[cnt] = frame.to_rgb().to_ndarray()
             cnt += 1
@@ -287,12 +291,6 @@ def _read_from_stream(
                 break
     except av.AVError as e:
         print(f"[Warning] Error while reading video {filename}: {e}")
-
-    # garbage collection for thread leakage
-    container.close()
-    del container
-    # NOTE: manually garbage collect to close pyav threads
-    gc.collect()
 
     # ensure that the results are sorted wrt the pts
     # NOTE: here we assert frames_pts is sorted
