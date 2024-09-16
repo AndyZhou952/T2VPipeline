@@ -47,4 +47,12 @@ We support the following arguments for PLLaVA captioning:
 - `bs`: Batch size. Default 1.
 - `skip_if_existing`: Skip processing if output already exists. Default False.
 
+**NOTE:** When running large-scale parallel inference, 
+the default `HCCL_CONNECT_TIMEOUT` setting might be 
+insufficient, potentially causing runtime errors with 
+AllGather operations. To avoid this issue, consider 
+setting `export HCCL_CONNECT_TIMEOUT=7200` (corresponds to 
+7200 seconds) or adjusting it according to your 
+specific needs.
+
 
