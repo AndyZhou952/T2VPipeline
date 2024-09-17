@@ -62,7 +62,8 @@ Here, we use the [CLIP](https://github.com/openai/CLIP) model, which is trained 
 For videos, we extract the first, last, and the middle frame and compare it with the caption. 
 We record the highest score among the three as the matching score.
 
-First, download the CLIP [model](https://github.com/openai/CLIP) and the [tokenizer](https://github.com/openai/CLIP/blob/main/clip/bpe_simple_vocab_16e6.txt.gz).
+First, download the [CLIP ViT-L/14 model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/clip/clip_vit_l_14.ckpt) 
+and the [tokenizer](https://github.com/openai/CLIP/blob/main/clip/bpe_simple_vocab_16e6.txt.gz).
 
 Then, run the following command. **Make sure** the meta file has the column `path` (path to the sample).
 For matching scores for captions, the meta file should also have the column `text` (caption of the sample).

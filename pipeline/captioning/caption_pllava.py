@@ -48,7 +48,7 @@ conv_template = Conversation(
     mm_token="<image>",
 )
 
-# TODO: Image Captioning is not supported (load_image assert False in PLLaVA)
+# **REMARK**: image captioning is NOT supported by PLLaVA by default
 class VideoTextDataset:
     def __init__(self, meta_path, num_frames):
         self.meta_path = meta_path
@@ -116,8 +116,7 @@ def main():
         exit()
 
     # TODO: or if I should put this one at the beginning?
-    # TODO: use pynative mode instead to speed up for small scale PoC
-    # Ascend support only
+    # Ascend support only, currently PyNative mode
     ms.set_context(jit_config=dict(jit_level="O1"), device_target="Ascend")
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
     init()
@@ -163,7 +162,7 @@ def main():
             if img_list is None:
                 # skip if error occurs when handling a video, in which case the caption for this video would be empty
                 indices_list.append(idx) # these three lines fix AllGather issue - consistent Tensor length
-                token_length_list.append(0)  # Indicate no tokens generated
+                token_length_list.append(0)  # indicate no tokens generated
                 token_list.append(pad_tensor(ms.Tensor([0], dtype=ms.int64), args.pad_length))
                 continue
             out_tokens = get_response(chat, chat_state, img_list, args.question,
