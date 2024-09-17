@@ -61,12 +61,23 @@ def extract_frames(
 
             frames = []
             for idx in frame_inds:
-                if idx >= total_frames:
-                    idx = total_frames - 1
-                target_timestamp = int(idx * av.time_base / container.streams.video[0].average_rate)
-                container.seek(target_timestamp)
-                frame = next(container.decode(video=0)).to_image()
-                frames.append(frame)
+                try:
+                    if idx >= total_frames:
+                        idx = total_frames - 1
+                    target_timestamp = int(idx * av.time_base / container.streams.video[0].average_rate)
+                    container.seek(target_timestamp)
+                    frame = next(container.decode(video=0)).to_image()
+                    frames.append(frame)
+                except Exception:
+                    try:
+                        print(f"[Warning] Error reading frame {idx} from {video_path}. Try reading the first frame.")
+                        container.seek(0)
+                        frame = next(container.decode(video=0)).to_image()
+                    except Exception:
+                        print(f"[Warning] Error reading first frame from {video_path}. Returning a black frame.")
+                        height = width = 256
+                        frame = Image.new("RGB", (width, height), (0, 0, 0))
+                    frames.append(frame)
 
             if return_length:
                 return frames, total_frames
@@ -86,8 +97,23 @@ def extract_frames(
 
         frame_inds = np.array(frame_inds).astype(np.int32)
         frame_inds[frame_inds >= total_frames] = total_frames - 1
-        frames = container.get_batch(frame_inds).asnumpy()  # [N, H, W, C]
-        frames = [Image.fromarray(x) for x in frames]
+
+        frames = []
+        for idx in frame_inds:
+            try:
+                frame = container[idx].asnumpy()
+                frame = Image.fromarray(frame)
+                frames.append(frame)
+            except Exception as e:
+                print(f"[Warning] Error reading frame {idx} from {video_path}: {e}. Try reading the first frame.")
+                try:
+                    frame = container[0].asnumpy()
+                    frame = Image.fromarray(frame)
+                except Exception as e:
+                    print(f"[Warning] Error reading first frame from {video_path}: {e}. Returning a black frame.")
+                    height = width = 256
+                    frame = Image.new("RGB", (width, height), (0, 0, 0))
+                frames.append(frame)
 
         if return_length:
             return frames, total_frames
@@ -118,18 +144,15 @@ def extract_frames(
                     frame = Image.fromarray(frame)
                 except Exception as e:
                     print(f"[Warning] Error reading frame {idx} from {video_path}: {e}")
-                    # First, try to read the first frame
                     try:
                         print(f"[Warning] Try reading first frame.")
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                         ret, frame = cap.read()
                         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         frame = Image.fromarray(frame)
-                    # If that fails, return a black frame
                     except Exception as e:
-                        print(f"[Warning] Error in reading first frame from {video_path}: {e}")
-                        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        print(f"[Warning] Error in reading first frame from {video_path}: {e}. Returning a black frame.")
+                        height = width = 256
                         frame = Image.new("RGB", (width, height), (0, 0, 0))
 
                 # HACK: if height or width is 0, return a black frame instead
@@ -213,6 +236,9 @@ def read_video_av(
                 {"video": 0},
                 filename=filename,
             )
+            for stream in container.streams:
+                # Issue: https://github.com/PyAV-Org/PyAV/issues/1117
+                stream.close() # explicitly close stream to avoid memory leak
     except av.AVError as e:
         print(f"[Warning] Error while reading video {filename}: {e}")
         return None, info
