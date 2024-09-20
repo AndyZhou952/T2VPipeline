@@ -54,6 +54,8 @@ msrun --worker_num=2 --local_worker_num=2 --join=True \
 ```
 Modify `worker_num` and `local_worker_num` based on your resource.
 
+This should output `/path/to/meta_aes.csv` with column `aes`.
+Empirically, an aesthetic score above 4.5 is considered fair.
 
 ## Matching Score
 
